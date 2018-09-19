@@ -46,6 +46,9 @@ BOOLEAN got_parentlink;
 /// Local lock manger
 OBJECT lockmgr;
 
+/// Is runnining within async job runner
+PUBLIC BOOLEAN __withinasyncrunner;
+
 // ---------------------------------------------------------------------------
 //
 // Object types
@@ -915,6 +918,11 @@ PUBLIC VARIANT FUNCTION CallFunctionFromJob(STRING func, VARIANT ARRAY args DEFA
     INSERT el INTO xargs AT END;
 
   RETURN WaitForPromise(CallAnyPtrVA(PTR AsyncCallFunctionFromJob, xargs));
+}
+
+PUBLIC BOOLEAN FUNCTION IsWithinFunctionRunningJob()
+{
+  RETURN __withinasyncrunner;
 }
 
 MACRO DummyTask()
