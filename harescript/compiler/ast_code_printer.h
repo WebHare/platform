@@ -35,6 +35,8 @@ class AstCodePrinter : public AST::NodeVisitor<void, Empty>
         AstCodePrinter(AstCodePrinter const &) = delete;
         AstCodePrinter& operator=(AstCodePrinter const &) = delete;
 
+        void PrintIndented(AST::Node *node);
+
     public:
         AstCodePrinter(CompilerContext &context);
         ~AstCodePrinter();
