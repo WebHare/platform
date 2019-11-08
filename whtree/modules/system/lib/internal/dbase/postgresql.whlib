@@ -16,10 +16,10 @@ LOADLIB "mod::system/lib/internal/dbase/support.whlib";
 /** Varchars longer than this length are stored with a LEFT(...) expression
     Keep in sync with query generation in hsvm_pgsqlprovider.cpp!
     (rationale: a index record is max about 2100 bytes long.
-    256 chars are max 1024 bytes (utf-8), so room for 2 max length strings
+    264 chars are max 1056 bytes (utf-8), so room for 2 max length strings
     in the index record)
 */
-CONSTANT INTEGER max_varchar_indexcolsize := 256;
+CONSTANT INTEGER max_varchar_indexcolsize := 264;
 
 STATIC OBJECTTYPE ChangeContext
 < /// Transaction
@@ -314,10 +314,12 @@ SELECT n.nspname AS table_schema
      , i.indoption
      , pg_get_expr(i.indexprs, i.indrelid) as indexprs
      , pg_get_expr(i.indpred, i.indrelid) as indpred
+     , a.amname
   FROM pg_catalog.pg_index i
        JOIN pg_catalog.pg_class ic ON indexrelid = ic.oid
        JOIN pg_catalog.pg_class rc ON indrelid = rc.oid
        JOIN pg_catalog.pg_namespace n ON rc.relnamespace = n.oid
+       JOIN pg_am a ON a.oid = ic.relam
 `);
 
     RECORD ARRAY allrefdcols := trans->__ExecSQL(`
@@ -670,6 +672,36 @@ BOOLEAN FUNCTION AreExpressionsEquivalent(STRING frompostgresql, STRING canonica
   RETURN frompostgresql = "";
 }
 
+STRING FUNCTION GetIndexColumnExpression(RECORD colrec, RECORD ind)
+{
+  STRING expr := EscapeName(colrec.name);
+
+  IF (colrec.dbtype = "varchar")
+  {
+
+    BOOLEAN too_long := colrec.maxlength > max_varchar_indexcolsize;
+    STRING ARRAY conversions;
+    IF (too_long AND NOT ind.is_unique)
+      INSERT `"left"($1, ${max_varchar_indexcolsize})` INTO conversions AT END;
+    IF (ind.is_uppercase)
+      INSERT `upper($1)` INTO conversions AT END;
+    IF (too_long AND ind.is_unique)
+      INSERT `digest($1, 'sha256'::text)` INTO conversions AT END;
+
+    // Make sure that the first )::text follows the column name directly!!
+    // The schemadef parser currently depends on it.
+
+    FOREVERY (STRING conv FROM conversions)
+    {
+      IF (expr NOT LIKE "*)")
+        expr := `(${expr})::text`;
+      expr := Substitute(conv, "$1", expr);
+    }
+  }
+
+  RETURN expr;
+}
+
 STRING FUNCTION GenerateCreateIndexCommandFromSpec(RECORD schemaspec, RECORD tablerec, RECORD ind, STRING name)
 {
   // Create the new index
@@ -677,36 +709,22 @@ STRING FUNCTION GenerateCreateIndexCommandFromSpec(RECORD schemaspec, RECORD tab
   IF (ind.is_unique)
     cmd := cmd || "UNIQUE ";
   cmd := cmd || `INDEX ${EscapeName(name)} ON ${EscapeName(schemaspec.name)}.${EscapeName(tablerec.name)}`;
-  cmd := cmd || "(";
 
+  STRING colpart := "(";
   FOREVERY (RECORD col FROM ind.columns)
   {
     IF (#col != 0)
-      cmd := cmd || ", ";
+      colpart := colpart || ", ";
 
     RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
     IF (NOT RecordExists(colrec))
       THROW NEW Exception(`Column '${col.name}'' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
 
-    IF (ind.is_uppercase)
-    {
-      IF (colrec.dbtype = "varchar")
-        IF (colrec.maxlength >= max_varchar_indexcolsize)
-          cmd := cmd || `upper(left((${EscapeName(col.name)})::text, ${max_varchar_indexcolsize}))`;
-        ELSE
-          cmd := cmd || `upper((${EscapeName(col.name)})::text)`;
-      ELSE
-        cmd := cmd || EscapeName(col.name);
-    }
-    ELSE
-    {
-      IF (colrec.dbtype = "varchar" AND colrec.maxlength >= max_varchar_indexcolsize)
-        cmd := cmd || `left(${EscapeName(col.name)}::text, ${max_varchar_indexcolsize})`;
-      ELSE
-        cmd := cmd || EscapeName(col.name);
-    }
+    colpart := colpart || GetIndexColumnExpression(colrec, ind);
   }
-  cmd := cmd || ")";
+  colpart := colpart || ")";
+
+  cmd := cmd || colpart;
 
   IF (ind.nonullstores)
   {
@@ -967,21 +985,20 @@ PUBLIC RECORD FUNCTION GeneratePostgreSQLDependentSQLCommands(RECORD ARRAY schem
               is_identical := FALSE;
             ELSE
             {
+              STRING method := "btree";
               FOREVERY (RECORD col FROM ind.columns)
               {
                 STRING expr := old_index.cols[#col].indexpr ?? old_index.cols[#col].attname;
 
                 RECORD colrec := SELECT * FROM tablerec.cols WHERE COLUMN name = col.name;
                 IF (NOT RecordExists(colrec))
-                  THROW NEW Exception(`Column '${col.name}'' in index ${schemaspec.name}.${tablerec.name}.${ind.name} is could not be found in table definition`);
+                  THROW NEW Exception(`Column '${col.name}' in index ${schemaspec.name}.${tablerec.name}.${ind.name} could not be found in table definition`);
 
-                STRING expect := `${EscapeName(col.name)}`;
-                IF (colrec.dbtype = "varchar" AND colrec.maxlength >= max_varchar_indexcolsize)
-                  expect := `"left"((${expect})::text, ${max_varchar_indexcolsize})`;
-                IF (colrec.dbtype = "varchar" AND ind.is_uppercase)
-                  expect := `upper(${expect LIKE "*::text*"?expect:`(${expect})::text`})`;
+                STRING expect := GetIndexColumnExpression(colrec, ind);
 
                 IF (NOT AreExpressionsEquivalent(expr, expect))
+                  is_identical := FALSE;
+                IF (old_index.amname != method)
                   is_identical := FALSE;
               }
             }
@@ -1232,10 +1249,19 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
         {
           STRING expr := ParsePostgreSQLExpressionList(ind.indexprs)[exprpos];
           exprpos := exprpos + 1;
-          IF (expr NOT LIKE `upper((*)::text)` AND expr NOT LIKE `upper("left"((*)::text, *))` AND expr NOT LIKE `"left"((*)::text, *)`)
+
+          // Assumed that the first )::text is after the column name, see GetIndexColumnExpression
+          IF (expr NOT LIKE `*(*)::text*`)
             THROW NEW Exception(`Could not parse index expression '${expr}'`);
-          INSERT [ name := SubString(expr, 7, LENGTH(expr) - 15), len := 0 ] INTO indexdef.cols AT END;
-          indexdef.is_uppercase := expr LIKE "upper(*)";
+
+          INTEGER postfixpos := SearchSubString(expr, ")::text");
+          INTEGER namestart := SearchLastSubString(expr, "(", postfixpos) + 1;
+          STRING name := SubString(expr, namestart, postfixpos - namestart);
+          IF (name LIKE `"*"`)
+            name := Substring(name, 1, LENGTH(name) - 1);
+
+          INSERT CELL[ name, len := 0 ] INTO indexdef.cols AT END;
+          indexdef.is_uppercase := expr LIKE "upper(*)" OR expr LIKE "*(upper(*)";
         }
       }
 

@@ -54,6 +54,11 @@ namespace PGSQL
 
 using namespace std::literals::string_view_literals;
 
+/** VARCHAR columns longer than this size are indexed with left(..., max_size) in WebHare. PostgreSQL needs
+    a filter with left(..., max_size) to be able to match the index.
+*/
+std::string_view max_indexed_size("264"sv); // Keep in sync with constant in dbase/postgresql.whlib!!
+
 // Copied from /usr/include/pgsql/server/catalog/pg_type.h (can't be included due to path issues)
 enum class OID
 {
@@ -1488,24 +1493,24 @@ bool PGSQLTransactionDriver::BuildQueryString(
                                 && encodingflags == ParamEncoding::None)
                         {
                                 // Special workarounds for indexed fields that have only a part indexed
-                                bool use_left = (query.tables[it->table].typeinfo->columnsdef[it->column].dbase_name == "unique_rawdata"sv || query.tables[it->table].typeinfo->columnsdef[it->column].dbase_name == "rawdata"sv)
+                                bool use_left = query.tables[it->table].typeinfo->columnsdef[it->column].dbase_name == "rawdata"sv
                                         && query.tables[it->table].name == "wrd.entity_settings"sv;
 
                                 // Most string indices are case insensitive, so add a case-insensitive filter too
                                 if (!it->casesensitive || use_left)
                                 {
                                         // most text indices are uppercase, so uppercase the stuff.
-                                        // ADDME: if the param is < 256 chars, this is the only query we need
+                                        // ADDME: if the param is < 264 chars, this is the only query we need
                                         where.append(" AND ");
                                         where.append(use_left ? "upper(left(" : "upper(");
                                         AddTableAndColumnName(query, it->table, it->column, false, &where);
-                                        where.append(use_left ? ", 256))" : ")"); // Keep in sync with constant in dbase/postgresql.whlib!!
+                                        where.append(use_left ? ", " + std::string(max_indexed_size) + "))" : ")"); // Keep in sync with constant in dbase/postgresql.whlib!!
 
                                         where.append(GetOperator(it->condition));
 
                                         where.append(use_left ? "upper(left(" : "upper(");
                                         where.append(paramref);
-                                        where.append(use_left ? ", 256))" : ")");
+                                        where.append(use_left ? ", " + std::string(max_indexed_size) + "))" : ")");
                                 }
                         }
 
