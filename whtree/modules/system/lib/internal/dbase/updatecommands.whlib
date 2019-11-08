@@ -290,8 +290,10 @@ PUBLIC MACRO ExecuteSQLUpdates(OBJECT trans, RECORD ARRAY cmds)
   FOREVERY(RECORD cmd FROM cmds)
   {
     //ADDME: IF a command caused an error, store that with the command for better error reporting
-    IF(cmd.type = "transop")
+    IF (cmd.type = "transop")
       cmd.cmd();
+    ELSE IF (cmd.type = "sql")
+      cmd.execsql(cmd.cmd);
     ELSE
       ABORT(cmd.type);
   }

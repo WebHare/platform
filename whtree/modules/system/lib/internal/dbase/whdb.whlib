@@ -134,7 +134,11 @@ MACRO AddTransOp(FUNCTION PTR cmd)
 
 MACRO AddCommand(OBJECT trans, STRING cmd)
 {
-  INSERT [ type := "transop", cmd := PTR __SendWHDBCommand(trans->id, cmd) ] INTO results_so_far.commands AT END;
+  INSERT CELL
+      [ type :=     "sql"
+      , cmd
+      , execsql :=  PTR __SendWHDBCommand(trans->id, #1)
+      ] INTO results_so_far.commands AT END;
 }
 
 MACRO AddError(STRING err)

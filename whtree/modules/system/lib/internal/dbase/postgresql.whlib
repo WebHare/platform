@@ -49,7 +49,11 @@ STATIC OBJECTTYPE ChangeContext
   */
   PUBLIC MACRO AddCommand(STRING cmd)
   {
-    INSERT [ type := "transop", cmd := PTR this->trans->__ExecSQL(cmd) ] INTO this->commands AT END;
+    INSERT CELL
+        [ type :=     "sql"
+        , cmd
+        , execsql :=  PTR this->trans->__ExecSQL(#1)
+        ] INTO this->commands AT END;
   }
 
   /** Add an error
