@@ -6,6 +6,6 @@ if [ -z "$WHBUILD_BUILDBOTPASSWORD" ]; then
   exit 1
 fi
 
-curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/testmodule.sh https://cms1.webhare.com/webdav/publisher/ci/testmodule.sh
-curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/docker-build/testdocker.sh https://cms1.webhare.com/webdav/publisher/ci/testdocker.sh
-curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/docker-build/functions.sh https://cms1.webhare.com/webdav/publisher/ci/functions.sh
+curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/testmodule.sh https://cms.webhare.dev/webdav/publisher/scripts/testmodule.sh
+curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/docker-build/testdocker.sh https://cms.webhare.dev/webdav/publisher/scripts/testdocker.sh
+curl --user "info+buildbot@webhare.nl:$WHBUILD_BUILDBOTPASSWORD" -T $BASEDIR/docker-build/functions.sh https://cms.webhare.dev/webdav/publisher/scripts/functions.sh
