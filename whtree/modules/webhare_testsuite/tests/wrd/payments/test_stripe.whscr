@@ -15,7 +15,7 @@ LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 
-BOOLEAN offlineonly := GetEnvironmentVariable("TESTFW_STRIPE_PUBLICKEY") = "";
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTSECRET_STRIPE_PUBLICKEY") = "";
 
 ASYNC MACRO SetupStripe()
 {
@@ -25,8 +25,8 @@ ASYNC MACRO SetupStripe()
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
   TT("methods")->value := "wrd:stripe";
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
-  TT(":Public key")->value := GetEnvironmentVariable("TESTFW_STRIPE_PUBLICKEY") ?? "dummy-id";
-  TT(":Secret key")->value := GetEnvironmentVariable("TESTFW_STRIPE_SECRETKEY") ?? "dummy-secret";
+  TT(":Public key")->value := GetEnvironmentVariable("TESTSECRET_STRIPE_PUBLICKEY") ?? "dummy-id";
+  TT(":Secret key")->value := GetEnvironmentVariable("TESTSECRET_STRIPE_SECRETKEY") ?? "dummy-secret";
   //TT("paymentextension->testmode")->value := true;
   IF(NOT offlineonly)
   {
@@ -107,7 +107,7 @@ ASYNC MACRO TestPaymentStripe()
 }
 
 IF(offlineonly)
-  Print("*** Skipping some tests as TESTFW_STRIPE_PUBLICKEY is not set\n\n");
+  Print("*** Skipping some tests as TESTSECRET_STRIPE_PUBLICKEY is not set\n\n");
 
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR SetupStripe

@@ -2,7 +2,7 @@
   <test script="test_sequences.whscr" />
   <test script="test_payment.whscr" />
   <test script="test_payment_forms.whscr" />
-  <test script="test_ideal.whscr" tags="external" ifenvironset="TESTFW_IDEAL_MERCHANTID" />
+  <test script="test_ideal.whscr" tags="external" ifenvironset="TESTSCRET_IDEAL_MERCHANTID" />
   <test script="test_ingenico.whscr" />
   <test script="test_mollie.whscr" tags="external"/>
   <test script="test_sisow.whscr" tags="external"/>

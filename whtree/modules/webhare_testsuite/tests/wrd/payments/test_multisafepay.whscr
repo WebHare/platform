@@ -20,9 +20,9 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 STRING currenturl;
 /* Each website has it’s own API key so if you are operating multiple websites be sure to use the correct API key for each site. The API key can be found under the website settings in MultiSafepay Control.
 */
-BOOLEAN offlineonly := GetEnvironmentVariable("TESTFW_MULTISAFEPAY_APIKEY") = "";
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTSECRET_MULTISAFEPAY_APIKEY") = "";
 IF(offlineonly)
-  Print("*** Skipping some tests as TESTFW_MULTISAFEPAY_APIKEY is not set\n\n");
+  Print("*** Skipping some tests as TESTSECRET_MULTISAFEPAY_APIKEY is not set\n\n");
 
 MACRO SetPage(RECORD evt)
 {
@@ -38,7 +38,7 @@ ASYNC MACRO SetupMultiSafePay()
   AWAIT ExpectScreenChange(+1, PTR TTClick("addprovider"));
   TT("methods")->value := "wrd:multisafepay";
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
-  TT(":API Key")->value := GetEnvironmentVariable("TESTFW_MULTISAFEPAY_APIKEY") ?? "dummy-key";
+  TT(":API Key")->value := GetEnvironmentVariable("TESTSECRET_MULTISAFEPAY_APIKEY") ?? "dummy-key";
   TT("paymentextension->testmode")->value := "test";
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
 

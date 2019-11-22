@@ -188,6 +188,7 @@ fi
 echo "Test environment variables:"
 # not listing CI_, lots of noise and usually not really relevant anymore at this point. Just look at the BUILD setup if you want these
 set | egrep '^(TESTFW_|WEBHARE_DEBUG|DOCKERARGS=)' | sort
+set | grep ^TESTSECRET_|sed -e '/=.*/s//=xxxxx/' | sort
 
 # Cleanup
 TEMPBUILDROOT=

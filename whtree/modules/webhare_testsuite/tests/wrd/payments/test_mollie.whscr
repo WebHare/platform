@@ -8,9 +8,9 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
-BOOLEAN offlineonly := GetEnvironmentVariable("TESTFW_MOLLIE_APIKEY") = "";
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTSECRET_MOLLIE_APIKEY") = "";
 IF(offlineonly)
-  Print("*** Skipping some tests as TESTFW_MOLLIE_APIKEY is not set\n\n");
+  Print("*** Skipping some tests as TESTSECRET_MOLLIE_APIKEY is not set\n\n");
 
 ASYNC MACRO SetupMollie()
 {
@@ -20,7 +20,7 @@ ASYNC MACRO SetupMollie()
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
   TT("methods")->value := "wrd:mollie";
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
-  TT("paymentextension->apikey")->value := GetEnvironmentVariable("TESTFW_MOLLIE_APIKEY") ?? "test-mollie-apikey";
+  TT("paymentextension->apikey")->value := GetEnvironmentVariable("TESTSECRET_MOLLIE_APIKEY") ?? "test-mollie-apikey";
   TT("paymentextension->webhooks")->value := FALSE;
 
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);

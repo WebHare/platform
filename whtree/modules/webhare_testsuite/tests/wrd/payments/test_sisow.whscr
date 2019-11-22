@@ -15,7 +15,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
-BOOLEAN offlineonly := GetEnvironmentVariable("TESTFW_SISOW_MERCHANTID") = "";
+BOOLEAN offlineonly := GetEnvironmentVariable("TESTSECRET_SISOW_MERCHANTID") = "";
 
 ASYNC MACRO SetupSisow()
 {
@@ -25,8 +25,8 @@ ASYNC MACRO SetupSisow()
   AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
   TT("methods")->value := "wrd:sisow";
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
-  TT(":Merchant ID")->value := GetEnvironmentVariable("TESTFW_SISOW_MERCHANTID") ?? "dummy-id";
-  TT(":Merchant secret")->value := GetEnvironmentVariable("TESTFW_SISOW_MERCHANTSECRET") ?? "dummy-secret";
+  TT(":Merchant ID")->value := GetEnvironmentVariable("TESTSECRET_SISOW_MERCHANTID") ?? "dummy-id";
+  TT(":Merchant secret")->value := GetEnvironmentVariable("TESTSECRET_SISOW_MERCHANTSECRET") ?? "dummy-secret";
   TT("paymentextension->testmode")->value := true;
   IF(NOT offlineonly)
   {
@@ -109,7 +109,7 @@ ASYNC MACRO TestPaymentSisow()
 }
 
 IF(offlineonly)
-  Print("*** Skipping some tests as TESTFW_SISOW_MERCHANTID is not set\n\n");
+  Print("*** Skipping some tests as TESTSECRET_SISOW_MERCHANTID is not set\n\n");
 
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR SetupSisow

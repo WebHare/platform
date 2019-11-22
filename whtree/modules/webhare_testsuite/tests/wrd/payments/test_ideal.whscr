@@ -15,8 +15,8 @@ ASYNC MACRO SetupIdeal()
 {
   testfw->BeginWork();
   //TODO shouldn't need 'skipvalidation' but our decoder breaks on lack of password
-  BLOB idealkey := StringToBlob(DecodeBase64(GetEnvironmentVariable("TESTFW_IDEAL_PRIVATEKEY")));
-  BLOB idealcrt := StringToBlob(DecodeBase64(GetEnvironmentVariable("TESTFW_IDEAL_CERTIFICATE")));
+  BLOB idealkey := StringToBlob(DecodeBase64(GetEnvironmentVariable("TESTSECRET_IDEAL_PRIVATEKEY")));
+  BLOB idealcrt := StringToBlob(DecodeBase64(GetEnvironmentVariable("TESTSECRET_IDEAL_CERTIFICATE")));
   RECORD keypair := testfw->CreateKeyPair("idealkey", idealkey, idealcrt, [skipvalidation := TRUE]);
   testfw->CommitWork();
 
@@ -29,10 +29,10 @@ ASYNC MACRO SetupIdeal()
 
   //https://www.ideal-checkout.nl/support/ideal-simulator
   TT("paymentextension->keypair")->value := keypair.id;
-  TT("paymentextension->merchantid")->value := ToInteger(GetEnvironmentVariable("TESTFW_IDEAL_MERCHANTID"),0);
-  TT("paymentextension->acquirer")->value := GetEnvironmentVariable("TESTFW_IDEAL_ACQUIRER");
+  TT("paymentextension->merchantid")->value := ToInteger(GetEnvironmentVariable("TESTSECRET_IDEAL_MERCHANTID"),0);
+  TT("paymentextension->acquirer")->value := GetEnvironmentVariable("TESTSECRET_IDEAL_ACQUIRER");
   TT("paymentextension->testmode")->value := TRUE;
-  TT("paymentextension->privatekeypassword")->value := GetEnvironmentVariable("TESTFW_IDEAL_PRIVATEKEYPASSWORD"); //FIXME this should move to the certificate store
+  TT("paymentextension->privatekeypassword")->value := GetEnvironmentVariable("TESTSECRET_IDEAL_PRIVATEKEYPASSWORD"); //FIXME this should move to the certificate store
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
 

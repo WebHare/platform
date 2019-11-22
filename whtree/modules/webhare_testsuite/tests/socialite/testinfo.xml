@@ -4,7 +4,7 @@
   <test script="test_plugins.whscr" />
   <test script="test_feeds.whscr" />
   <test script="test_seotab.whscr" />
-  <test script="test_google.whscr" tags="external" ifenvironset="TESTFW_GOOGLE_APIKEY" />
+  <test script="test_google.whscr" tags="external" ifenvironset="TESTSECRET_GOOGLE_APIKEY" />
   <test script="test_embedscript.whscr" flaky="true" />
   <jstest file="test_gtmintegration.es" />
 </group>
